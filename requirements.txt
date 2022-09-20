@@ -1,0 +1,6 @@
+# numpy==1.23.2
+sentence_transformers==2.2.2
+# setuptools==65.3.0
+# torch==1.13.0.dev20220912
+# tqdm==4.64.1
+transformers==4.11.0
