@@ -2,7 +2,7 @@ import json
 from beir.datasets.data_loader import GenericDataLoader
 from sentence_transformers import SentenceTransformer
 import torch
-from easy_elasticsearch import ElasticSearchBM25
+# from easy_elasticsearch import ElasticSearchBM25
 import tqdm
 import numpy as np
 import os
@@ -87,21 +87,22 @@ class NegativeMiner(object):
         return result
     
     def _mine_bm25(self):
-        logger.info(f'Mining with bm25')
-        result = {}
-        docs = list(map(self._get_doc, self.corpus.keys()))
-        dids = np.array(list(self.corpus.keys()))
-        pool = dict(zip(dids, docs))
-        bm25 = ElasticSearchBM25(pool, port_http='9222', port_tcp='9333', service_type='executable', index_name=f'one_trial{int(time.time() * 1000000)}')
-        for qid, pos_dids in tqdm.tqdm(self.gen_qrels.items()):
-            query = self.gen_queries[qid]
-            rank = bm25.query(query, topk=self.nneg)  # topk should be <= 10000
-            neg_dids = list(rank.keys())
-            for pos_did in self.gen_qrels[qid]:
-                if pos_did in neg_dids:
-                    neg_dids.remove(pos_did)
-            result[qid] = neg_dids
-        return result
+        # logger.info(f'Mining with bm25')
+        # result = {}
+        # docs = list(map(self._get_doc, self.corpus.keys()))
+        # dids = np.array(list(self.corpus.keys()))
+        # pool = dict(zip(dids, docs))
+        # bm25 = ElasticSearchBM25(pool, port_http='9222', port_tcp='9333', service_type='executable', index_name=f'one_trial{int(time.time() * 1000000)}')
+        # for qid, pos_dids in tqdm.tqdm(self.gen_qrels.items()):
+        #     query = self.gen_queries[qid]
+        #     rank = bm25.query(query, topk=self.nneg)  # topk should be <= 10000
+        #     neg_dids = list(rank.keys())
+        #     for pos_did in self.gen_qrels[qid]:
+        #         if pos_did in neg_dids:
+        #             neg_dids.remove(pos_did)
+        #     result[qid] = neg_dids
+        # return result
+        return
 
     def run(self):
         hard_negatives = {}

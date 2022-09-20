@@ -6,7 +6,7 @@ from .toolkit import (
     MarginDistillationLoss, 
     GenerativePseudoLabelingDataset, 
     PseudoLabeler, 
-    evaluate, 
+    # evaluate, 
     resize, 
     load_sbert, 
     set_logger_format, 
