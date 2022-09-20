@@ -1,6 +1,6 @@
 import shutil
 from beir.datasets.data_loader import GenericDataLoader
-from .toolkit import (
+from toolkit import (
     qgen, 
     NegativeMiner, 
     MarginDistillationLoss, 
@@ -31,7 +31,7 @@ logger = logging.getLogger('gpl.train')  # Here we do not use __name__ to have u
 
 
 def train(
-    path_to_generated_data: str,
+    train: str,
     output_dir: str,
     mnrl_output_dir: str = None,
     mnrl_evaluation_output: str = None,
@@ -58,6 +58,9 @@ def train(
     gpl_score_function: str = 'dot',
     rescale_range: List[float] = None
 ):     
+    
+    path_to_generated_data = train
+    
     #### Assertions ####
     assert pooling in [None, 'mean', 'cls', 'max']
     if do_evaluation:
@@ -74,7 +77,7 @@ def train(
 
     #### Make sure there is a `corpus.jsonl` file. It should be under either `path_to_generated_data` or `evaluation_data`` ####
     #### Also resize the corpus for efficient training if required  ####
-    os.makedirs(path_to_generated_data, exist_ok=True)
+    os.makedirs(path_to_generated_data, exist_ok=True)     
     if 'corpus.jsonl' not in os.listdir(path_to_generated_data):
         logger.info(f'Corpus does not exist in {path_to_generated_data}. Now clone the one from the evaluation path {evaluation_data}')
         assert 'corpus.jsonl' in os.listdir(evaluation_data), f'No corpus found in evaluation path {evaluation_data}! It should be in the BeIR format. For more details, please refer to https://github.com/UKPLab/beir#beers-available-datasets.'
@@ -220,9 +223,10 @@ def train(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path_to_generated_data', required=True, help='Path for/to the generated data. GPL will first check this path for a `corpus.jsonl` file for the (sole) data input of the whole pipeline. If an empty folder is indicated, query generation and hard-negative mining will be run automatically; one can also use a BeIR-QGen format data folder to start and skip the query generation.')
+    parser.add_argument('--train', type=str)
+    #parser.add_argument('--path_to_generated_data', required=True, help='Path for/to the generated data. GPL will first check this path for a `corpus.jsonl` file for the (sole) data input of the whole pipeline. If an empty folder is indicated, query generation and hard-negative mining will be run automatically; one can also use a BeIR-QGen format data folder to start and skip the query generation.')
     parser.add_argument('--output_dir', required=True, help='Output path for the GPL model.')
-    parser.add_argument('--do_evaluation', action='store_true', default=False, help='Wether to do the evaluation (after training)')
+    # parser.add_argument('--do_evaluation', action='store_true', default=False, help='Wether to do the evaluation (after training)')
     parser.add_argument('--evaluation_data', type=str, help='Path to the BeIR-format dataset. This is the next folder GPL goes to for the target corpus if there is no `corpus.jsonl` under `path_to_generated_data`')
     parser.add_argument('--evaluation_output', default='output', help='Path for the evaluation output.')
     parser.add_argument('--qgen_prefix', default='qgen', help='This prefix will appear as part of the (folder/file) names for query-generation results: For example, we will have "qgen-qrels/" and "qgen-queries.jsonl" by default.')
@@ -236,7 +240,7 @@ if __name__ == '__main__':
     parser.add_argument('--new_size', type=int, default=None, help='Resize the corpus to `new_size` (|corpus|) if needed. When set to None (by default), the |corpus| will be the full size. When set to -1, the |corpus| will be set automatically: If QPP * |corpus| <= 250K, |corpus| will be the full size; else QPP will be set 3 and |corpus| will be set to 250K / 3')
     parser.add_argument('--queries_per_passage', type=int, default=-1, help='Number of Queries Per Passage (QPP) in the query generation step. When set to -1 (by default), the QPP will be chosen automatically: If QPP * |corpus| <= 250K, then QPP will be set to 250K / |corpus|; else QPP will be set 3 and |corpus| will be set to 250K / 3')
     parser.add_argument('--gpl_steps', type=int, default=140000, help='Training steps for GPL.')
-    parser.add_argument('--use_amp', action='store_true', default=False, help='Whether to use half precision')
+    # parser.add_argument('--use_amp', action='store_true', default=False, help='Whether to use half precision')
     parser.add_argument('--retrievers', nargs='+', default=['msmarco-distilbert-base-v3', 'msmarco-MiniLM-L-6-v3'], help='Indicate retriever names for mining negatives. They could be one or many BM25 ("bm25") or dense retrievers (in SBERT format).')
     parser.add_argument('--retriever_score_functions', nargs='+', default=['cos_sim', 'cos_sim'], choices=['dot', 'cos_sim', 'none'], help='Score functions of the corresponding retrievers for negative mining. Please set it to "none" for BM25.')
     parser.add_argument('--gpl_score_function', choices=['dot', 'cos_sim'], default='dot')
