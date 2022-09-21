@@ -62,15 +62,6 @@ def train_fun( # TODO: check if function can change name
     rescale_range: List[float] = None
 ):  
     
-    # Test upload file to S3
-    import pandas as pd
-    df = pd.DataFrame([1, 2, 3])
-    df.to_csv(os.path.join(os.environ["SM_OUTPUT_DATA_DIR"], 'test.csv'), index=False)
-    o = urlparse(os.path.join(output_dir, 'test.csv'))
-    bucket = o.netloc
-    key = o.path[1:]
-    boto3.Session().resource("s3").Bucket(bucket).upload_file(os.path.join(os.environ["SM_OUTPUT_DATA_DIR"], 'test.csv'), key)
-    
     path_to_generated_data = train # TODO: experiment if arg train can have different name
     
     #### Assertions ####
@@ -152,6 +143,11 @@ def train_fun( # TODO: check if function can change name
         miner = NegativeMiner(path_to_generated_data, qgen_prefix, retrievers=retrievers, retriever_score_functions=retriever_score_functions, nneg=negatives_per_query, use_train_qrels=use_train_qrels)
         miner.run()
 
+        # SAGEMAKER: Upload hard negatives to S3
+        o = urlparse(os.path.join(output_dir, 'hard-negatives.jsonl'))
+        bucket = o.netloc
+        key = o.path[1:]
+        boto3.Session().resource("s3").Bucket(bucket).upload_file(os.path.join(path_to_generated_data, 'hard-negatives.jsonl'), key)
 
     #### Pseudo labeling ####
     #### This will be skipped if there is an existing `gpl-training-data.tsv` file under `path_to_generated_data` ####
@@ -162,6 +158,13 @@ def train_fun( # TODO: check if function can change name
         logger.info('No GPL-training data found. Now generating it via pseudo labeling')
         pseudo_labeler = PseudoLabeler(path_to_generated_data, gen_queries, corpus, gpl_steps, batch_size_gpl, cross_encoder, max_seq_length)
         pseudo_labeler.run()
+        
+        # SAGEMAKER: Upload pseudo labels to S3
+        o = urlparse(os.path.join(output_dir, gpl_training_data_fname))
+        bucket = o.netloc
+        key = o.path[1:]
+        boto3.Session().resource("s3").Bucket(bucket).upload_file(os.path.join(path_to_generated_data, gpl_training_data_fname), key)
+
     # Do rescaling if needed:
     if rescale_range is not None and len(rescale_range) == 2:
         if gpl_score_function != 'cos_sim':
@@ -176,6 +179,7 @@ def train_fun( # TODO: check if function can change name
         if gpl_score_function == 'cos_sim':
             logger.warning(f'Not do rescaling while gpl_score_function = {gpl_score_function}')
 
+            
     ### Train the model with MarginMSE loss ###
     #### This will be skipped if the checkpoint at the indicated training steps can be found ####
     ckpt_dir = os.path.join(output_dir, str(gpl_steps))
@@ -190,6 +194,7 @@ def train_fun( # TODO: check if function can change name
         train_dataloader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size_gpl, drop_last=True)  # Here shuffle=False, since (or assuming) we have done it in the pseudo labeling
         train_loss = MarginDistillationLoss(model=model, similarity_fct=gpl_score_function)
 
+        model.to("cuda") # SAGEMAKER: cuda
         # assert gpl_steps > 1000
         model.fit(
             [(train_dataloader, train_loss),],
@@ -198,13 +203,12 @@ def train_fun( # TODO: check if function can change name
             warmup_steps=1000,
             checkpoint_save_steps=10000,
             checkpoint_save_total_limit=10000,
-            output_path=output_dir,
-            checkpoint_path=output_dir,
+            output_path=os.environ['SM_MODEL_DIR'], # SAGEMAKER: Upload model to S3
+            checkpoint_path=os.environ['SM_MODEL_DIR'], # SAGEMAKER: Upload model to S3
             use_amp=use_amp
         )
     else:
         logger.info('Trained GPL model found. Now skip training')
-
 
     ### Evaluate the model if required ###
     if do_evaluation:
