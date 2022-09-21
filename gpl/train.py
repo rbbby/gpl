@@ -24,6 +24,8 @@ import argparse
 from typing import List, Union
 import math
 import boto3
+from urllib.parse import urlparse
+
 # import crash_ipdb
 
 
@@ -31,7 +33,7 @@ set_logger_format()
 logger = logging.getLogger('gpl.train')  # Here we do not use __name__ to have unified logger name, no matter whether we are using `python -m` or `import gpl; gpl.train`
 
 
-def train_fun(
+def train_fun( # TODO: check if function can change name
     train,
     output_dir: str,
     mnrl_output_dir: str = None,
@@ -58,16 +60,18 @@ def train_fun(
     use_train_qrels: bool = False,
     gpl_score_function: str = 'dot',
     rescale_range: List[float] = None
-):     
-
-    #import pandas as pd
-    #df = pd.DataFrame([1, 2, 3])
-    #df.to_csv(os.path.join(train, 'test.csv'), index=False)
-    #boto3.Session().resource("s3").Bucket(bucket).upload_file(
-    #    os.path.join(args.output_data_dir, "embeddings.csv.gz"), key
-    #)
-
-    path_to_generated_data = train
+):  
+    
+    # Test upload file to S3
+    import pandas as pd
+    df = pd.DataFrame([1, 2, 3])
+    df.to_csv(os.path.join(os.environ["SM_OUTPUT_DATA_DIR"], 'test.csv'), index=False)
+    o = urlparse(os.path.join(output_dir, 'test.csv'))
+    bucket = o.netloc
+    key = o.path[1:]
+    boto3.Session().resource("s3").Bucket(bucket).upload_file(os.path.join(os.environ["SM_OUTPUT_DATA_DIR"], 'test.csv'), key)
+    
+    path_to_generated_data = train # TODO: experiment if arg train can have different name
     
     #### Assertions ####
     assert pooling in [None, 'mean', 'cls', 'max']
